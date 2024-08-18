@@ -26,10 +26,10 @@ class Renderer:
         self.scale = scale
 
         self.map = [
-            ["grass", "debug", "grass", "grass"],
-            ["grass", "debug", "grass", "grass"],
-            ["grass", "grass", "debug", "grass"],
-            ["grass", "grass", "grass", "grass"],
+            ["grass_dark_0", "grass_light_0", "grass_dark_0", "grass_light_0"],
+            ["grass_light_0", "grass_dark_0", "grass_light_0", "grass_dark_0"],
+            ["grass_dark_0", "grass_light_0", "grass_dark_0", "grass_light_0"],
+            ["grass_light_0", "grass_dark_0", "grass_light_0", "grass_dark_0"],
         ]
 
     def start(self):
@@ -37,7 +37,7 @@ class Renderer:
 
         screen = pygame.display.set_mode((1500, 1500))
 
-        sprite_group = pygame.sprite.Group()
+        sprite_group_background = pygame.sprite.Group()
 
         # sprite1 = MySprite(
         #     "/mnt/c/Github/Manor-lordings/art/grass_tile_0.png", (0, 0), self.scale
@@ -47,14 +47,16 @@ class Renderer:
         # Loop over the map to create sprites for each tile
         for y, row in enumerate(self.map):
             for x, tile in enumerate(row):
-                file_path = "/mnt/c/Github/Manor-lordings/art/debug.png"
-                if tile == "grass":
-                    file_path = "/mnt/c/Github/Manor-lordings/art/grass_tile_0.png"
+                # file_path = "/mnt/c/Github/Manor-lordings/art/debug.png"
+                # if tile == "grass_dark_0":
+                #     file_path = "/mnt/c/Github/Manor-lordings/art/grass_dark_0.png"
+
+                file_path = f"/mnt/c/Github/Manor-lordings/art/{tile}.png"
                 # Calculate the position of the tile
                 pos = (x * 16 * self.scale, y * 16 * self.scale)
                 # Create a new sprite for the grass tile
                 sprite = MySprite(file_path, pos, self.scale)
-                sprite_group.add(sprite)
+                sprite_group_background.add(sprite)
 
         # Main game loop
         running = True
@@ -67,7 +69,13 @@ class Renderer:
             screen.fill((0, 0, 0))
 
             # Draw sprites
-            sprite_group.draw(screen)
+            sprite_group_background.draw(screen)
+
+            # Draw "overlay_serf_0.png" on 0,0
+            sprite = MySprite(
+                "/mnt/c/Github/Manor-lordings/art/overlay_serf_0.png", (0, 0), self.scale
+            )
+            screen.blit(sprite.image, sprite.rect)
 
             # Update the display
             pygame.display.flip()
