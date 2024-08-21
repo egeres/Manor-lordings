@@ -101,24 +101,216 @@ class Terrain:
         self.entities.append(entity)
 
 
+# 🍑 UI elements
+
+
+# Buttom_1 = Button(
+#     "image",
+#     on_click = method(),
+#     "sound",
+#     ...
+# )
+# a = Container(color_red, 2px,
+#     [
+#         Buttom_1,
+#         Buttom_2,
+#     ]
+# )
+# a.position = (0, 100)
+# a.position = "bottom_center ?"
+
+
+class UIElement:
+
+    def __init__(self, position: tuple[int, int]) -> None:
+        self.position = position
+        self.clicable: bool = False
+
+        self.visibility = "visible"
+        self.sprite: MySprite | None = None
+        self.width: int | None = None
+        self.height: int | None = None
+        self.image: str | None = None
+        self.parent: UIElement | None = None
+
+    def set_visibility(self, visibility: str) -> None:
+        assert visibility in [
+            "visible",
+            "hidden",
+            "disabled",
+        ], "Invalid visibility value"
+        self.visibility = visibility
+
+    def on_click(self) -> None:
+        pass
+
+    @property
+    def x(self) -> int:
+        to_return = self.position[0]
+        if self.parent is not None:
+            to_return += self.parent.x
+        return to_return
+
+    @property
+    def y(self) -> int:
+        to_return = self.position[1]
+        if self.parent is not None:
+            to_return += self.parent.y
+        return to_return
+
+    def render(self, screen) -> None:
+        raise NotImplementedError
+
+    @property
+    def rect(self) -> pygame.Rect:
+        raise NotImplementedError
+
+    def process_click(self, mouse_pos: tuple[int, int]) -> None:
+        raise NotImplementedError
+
+
+class Container(UIElement):
+
+    def __init__(
+        self,
+        position: tuple[int, int],
+        color: str,
+        border_width: int,
+        elements: list[UIElement],
+    ) -> None:
+        super().__init__(position)
+
+        self.color = color
+        self.border_width = border_width
+        self.elements = elements
+        for element in elements:
+            element.parent = self
+
+    def render(self, screen) -> None:
+        for element in self.elements:
+            element.render(screen)
+
+    @property
+    def rect(self) -> pygame.Rect:
+        raise NotImplementedError
+
+    def process_click(self, mouse_pos: tuple[int, int]) -> bool:
+        for element in self.elements:
+            if element.process_click(mouse_pos):
+                return True
+        return False
+
+
+class TextLabel(UIElement):
+
+    def __init__(
+        self,
+        position: tuple[int, int],
+        text: str,
+        font: str = "EXEPixelPerfect.ttf",
+        size: int = 60,
+    ) -> None:
+        super().__init__(position)
+
+        self._text = text
+        self.font_pygame = pygame.font.Font(str(dir_root_art / font), size)
+        self.text_surface = self.font_pygame.render(
+            text, True, (255, 255, 255), (10, 10, 10)
+        )
+        self._rect = self.text_surface.get_rect()
+
+    @property
+    def rect(self) -> pygame.Rect:
+        return self._rect
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        self._text = value
+        self.text_surface = self.font_pygame.render(
+            self._text, True, (255, 255, 255), (10, 10, 10)
+        )
+
+    def render(self, screen) -> None:
+        screen.blit(self.text_surface, (self.x, self.y))
+
+    def process_click(self, mouse_pos: tuple[int, int]) -> bool:
+        return False
+
+
+class Button(UIElement):
+
+    def __init__(
+        self,
+        position: tuple[int, int],
+        image: str,
+        on_click,
+        sound: str | None = None,
+        scale: int = 1,
+    ) -> None:
+        super().__init__(position)
+
+        self.image = image
+        self.on_click = on_click
+        self.sound = sound
+        self.clicable = True
+
+        self.sprite: MySprite = MySprite(image, (0, 0), scale)
+        self.width, self.height = self.sprite.rect.size
+
+    def render(self, screen) -> None:
+        screen.blit(self.sprite.image, (self.x, self.y))
+
+    @property
+    def rect(self) -> pygame.Rect:
+        return self.sprite.rect
+
+    def process_click(self, mouse_pos: tuple[int, int]) -> bool:
+
+        self.rect.topleft = (self.x, self.y)
+        if self.rect.collidepoint(mouse_pos):
+            self.on_click()
+            return True
+        return False
+
+
 class Engine:
 
     def __init__(
         self,
         screen,
         terrain: Terrain,
-        uielements: list[UIElement],
+        # uielements: list[UIElement],
         scale: int = 10,
     ):
         self.screen = screen
         self.terrain = terrain
-        self.uielements = uielements
+        # self.uielements = uielements
         self.scale = scale
 
         self.camera_x, self.camera_y = 0, 0
         self.selectedtile: tuple[int, int] | None = None
         self.tile_size = 16 * self.scale
         self.running = True
+
+        # UI
+        self.silly_counter = 0
+        self.label_0 = TextLabel((0, 0), f"Hello, World! {self.silly_counter}")
+        self.button_0 = Button(
+            (0, 100),
+            "ui_button_nextturn",
+            on_click=self.UI_increase_silly_counter,
+            scale=15,
+        )
+        self.container = Container((0, 100), "red", 2, [self.label_0, self.button_0])
+        self.uielements = [self.container]
+
+    def UI_increase_silly_counter(self):
+        self.silly_counter += 1
+        self.label_0.text = f"Hello, World! {self.silly_counter}"
 
     def events(self):
         keys = pygame.key.get_pressed()
@@ -145,7 +337,7 @@ class Engine:
                     print("Moving entities")
                     for entity in self.terrain.entities:
                         if isinstance(entity, Serf):
-                            entity.move_one_cell((1, 0))x
+                            entity.move_one_cell((1, 0))
 
     def events_mouse_click(self):
 
@@ -153,7 +345,9 @@ class Engine:
 
         # 🍑 UI click
         for element in self.uielements:
-            element.process_click(mouse_pos)
+            if element.process_click(mouse_pos):
+                return
+
             # if element.visibility == "visible" and element.clicable:
             #     if element.rect.collidepoint(pygame.mouse.get_pos()):
             #         element.on_click()
@@ -235,183 +429,13 @@ class Engine:
         pygame.quit()
 
 
-# Buttom_1 = Button(
-#     "image",
-#     on_click = method(),
-#     "sound",
-#     ...
-# )
-# a = Container(color_red, 2px,
-#     [
-#         Buttom_1,
-#         Buttom_2,
-#     ]
-# )
-# a.position = (0, 100)
-# a.position = "bottom_center ?"
-
-
-class UIElement:
-
-    def __init__(self, position: tuple[int, int]) -> None:
-        self.position = position
-        self.clicable: bool = False
-
-        self.visibility = "visible"
-        self.sprite: MySprite | None = None
-        self.width: int | None = None
-        self.height: int | None = None
-        self.image: str | None = None
-        self.parent: UIElement | None = None
-
-    def set_visibility(self, visibility: str) -> None:
-        assert visibility in [
-            "visible",
-            "hidden",
-            "disabled",
-        ], "Invalid visibility value"
-        self.visibility = visibility
-
-    def on_click(self) -> None:
-        pass
-
-    @property
-    def x(self) -> int:
-        to_return = self.position[0]
-        if self.parent is not None:
-            to_return += self.parent.x
-        return to_return
-
-    @property
-    def y(self) -> int:
-        to_return = self.position[1]
-        if self.parent is not None:
-            to_return += self.parent.y
-        return to_return
-
-    def render(self, screen) -> None:
-        raise NotImplementedError
-
-    @property
-    def rect(self) -> pygame.Rect:
-        raise NotImplementedError
-    
-
-    def process_click(self, mouse_pos: tuple[int, int]) -> None:
-        raise NotImplementedError
-
-
-class Container(UIElement):
-
-    def __init__(
-        self,
-        position: tuple[int, int],
-        color: str,
-        border_width: int,
-        elements: list[UIElement],
-    ) -> None:
-        super().__init__(position)
-
-        self.color = color
-        self.border_width = border_width
-        self.elements = elements
-        for element in elements:
-            element.parent = self
-
-    def render(self, screen) -> None:
-        for element in self.elements:
-            element.render(screen)
-
-    @property
-    def rect(self) -> pygame.Rect:
-        raise NotImplementedError
-
-
-class TextLabel(UIElement):
-
-    def __init__(
-        self,
-        position: tuple[int, int],
-        text: str,
-        font: str = "EXEPixelPerfect.ttf",
-        size: int = 60,
-    ) -> None:
-        super().__init__(position)
-
-        self._text = text
-        self.font_pygame = pygame.font.Font(str(dir_root_art / font), size)
-        self.text_surface = self.font_pygame.render(
-            text, True, (255, 255, 255), (10, 10, 10)
-        )
-        self._rect = self.text_surface.get_rect()
-
-    @property
-    def rect(self) -> pygame.Rect:
-        return self._rect
-
-    @property
-    def text(self) -> str:
-        return self._text
-
-    @text.setter
-    def text(self, value: str) -> None:
-        self._text = value
-        self.text_surface = self.font_pygame.render(
-            self._text, True, (255, 255, 255), (10, 10, 10)
-        )
-
-    def render(self, screen) -> None:
-        screen.blit(self.text_surface, (self.x, self.y))
-
-
-class Button(UIElement):
-
-    def __init__(
-        self,
-        position: tuple[int, int],
-        image: str,
-        on_click,
-        sound: str | None = None,
-        scale: int = 1,
-    ) -> None:
-        super().__init__(position)
-
-        self.image = image
-        self.on_click = on_click
-        self.sound = sound
-        self.clicable = True
-
-        self.sprite: MySprite = MySprite(image, (0, 0), scale)
-        self.width, self.height = self.sprite.rect.size
-
-    def render(self, screen) -> None:
-        screen.blit(self.sprite.image, (self.x, self.y))
-
-    @property
-    def rect(self) -> pygame.Rect:
-        return self.sprite.rect
-
-
 # TODO_2: Add python colour or something
-# TODO_2: Add
 
 if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((1500, 1500))
-
-    # container = Container("red", 2, [a])
-
-    label_0 = TextLabel((0, 0), "Hello, World!")
-    button_0 = Button(
-        (0, 100),
-        "ui_button_nextturn",
-        on_click=lambda: print("Hello, World!"),
-        scale=15,
-    )
-    container = Container((10, 10), "red", 2, [label_0, button_0])
-
     t = Terrain((4, 4))
     Serf((0, 0), t)
     Serf((3, 3), t)
-    renderer = Engine(screen, t, [container], scale=15)
+    renderer = Engine(screen, t, scale=15)
     renderer.start()
