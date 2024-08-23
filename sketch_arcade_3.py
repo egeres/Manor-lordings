@@ -1,17 +1,23 @@
+# https://github.com/pythonarcade/arcade/issues/2353
+
 from __future__ import annotations
 
-from pathlib import Path
 import random
+from pathlib import Path
+
 import arcade
 import arcade.color
 import arcade.gui
+import arcade.gui.widgets.buttons
+import arcade.gui.widgets.layout
+import arcade.gui.widgets.text
 import arcade.key
 from pyglet.math import Vec2
 
 SCREEN_W = 1300
 SCREEN_H = 1300
-MOVEMENT_SPEED = 5
-SIZE = 10
+MOVEMENT_SPEED = 1
+SIZE = 1
 SPRITE_SIZE = 16 * SIZE
 
 dir_art = Path(__file__).parent / "art"
@@ -111,6 +117,9 @@ class Entity:
         if self.sprite is not None:
             self.sprite.center_y = value * SPRITE_SIZE + SPRITE_SIZE // 2
 
+    def tick(self):
+        raise NotImplementedError
+
 
 class NaturalResource(Entity):
     pass
@@ -155,6 +164,11 @@ class Forest(NaturalResource):
         self._resources = value
         self.sprite_update()
 
+    def tick(self):
+        self.resources -= 1
+        if self.resources < 0:
+            self.resources = 0
+
 
 class OrganicLifeForm(Entity):
     pass
@@ -170,6 +184,10 @@ class Serf(OrganicLifeForm):
         self.sprite.center_x = x * SPRITE_SIZE + SPRITE_SIZE // 2
         self.sprite.center_y = y * SPRITE_SIZE + SPRITE_SIZE // 2
 
+    def tick(self):
+        self.x += random.choice([-1, 0, 1])
+        self.y += random.choice([-1, 0, 1])
+
 
 class MyGame(arcade.Window):
 
@@ -177,7 +195,7 @@ class MyGame(arcade.Window):
         super().__init__(SCREEN_W, SCREEN_H, "Sprite Example")  # type: ignore
 
         # Terrain
-        self.terrain = Terrain((5, 5))
+        self.terrain = Terrain((4, 4))
         self.terrain.add(Serf(0, 0))
         self.terrain.add(Forest(1, 1))
         self.terrain.add(Forest(1, 2))
@@ -189,37 +207,36 @@ class MyGame(arcade.Window):
         self.selected_tile: tuple[int, int] | None = None
 
         # Camera
-        self.camera = arcade.Camera(SCREEN_W, SCREEN_H)
-        self.camera.position = Vec2(
-            -(SCREEN_W // 2) + (self.terrain.width * SPRITE_SIZE // 2),
-            -(SCREEN_H // 2) + (self.terrain.height * SPRITE_SIZE // 2),
+        self.camera = arcade.Camera2D()
+        self.camera.zoom = 10
+        self.camera.bottom_left = Vec2(
+            (-(SCREEN_W / 10) // 2) + (self.terrain.width * SPRITE_SIZE // 2),
+            (-(SCREEN_H / 10) // 2) + (self.terrain.height * SPRITE_SIZE // 2),
         )
         self.keys = {"w": False, "a": False, "s": False, "d": False}
 
         # UI
-        self.ui_manager = arcade.gui.UIManager()
-        self.ui_manager.enable()
+        arcade.load_font(dir_art / "EXEPixelPerfect.ttf")
+        self.ui = arcade.gui.UIManager()
+        self.ui.enable()
         self.top_label = arcade.gui.UILabel(
-            text="-", width=300, font_size=20, align="center"
+            text="0123456789QWERTYUIOPASDFGHJKLMNBVCXZ",
+            width=300,
+            font_size=60,
+            align="center",
+            font_name="EXEPixelPerfect",
         )
-        self.ui_manager.add(
-            arcade.gui.UIAnchorWidget(
-                child=self.top_label, anchor_x="center_x", anchor_y="top", align_y=-20
-            )
-        )
-        self.button_nextturn = arcade.gui.UIFlatButton(text="Next", width=200)
-        self.button_nextturn.on_click = self.gameplay_next_turn
-        self.ui_manager.add(
-            arcade.gui.UIAnchorWidget(
-                child=self.button_nextturn,
-                anchor_x="center_x",
-                anchor_y="bottom",
-                align_y=20,
-            )
-        )
+        self.button_next = arcade.gui.UIFlatButton(text="Next", width=200, height=50)
+        self.button_next.on_click = self.gameplay_next_turn
+        l = arcade.gui.widgets.layout.UIAnchorLayout()
+        l.add(self.top_label, anchor_y="top")
+        l.add(self.button_next, anchor_y="bottom")
+        self.ui.add(l)
 
         # Sprites
-        self.sprite_selected = arcade.Sprite(str(dir_art / "selected.png"), SIZE)
+        self.sprite_selected = arcade.Sprite(str(dir_art / "selected.png"))
+        self.sprites_selected = arcade.SpriteList()
+        self.sprites_selected.append(self.sprite_selected)
         self.sprites_entities = arcade.SpriteList()
         for n, entity in enumerate(self.terrain.entities):
             if entity.sprite is not None:
@@ -229,53 +246,36 @@ class MyGame(arcade.Window):
 
     def gameplay_next_turn(self, event):
         for entity in self.terrain.entities:
-
-            if isinstance(entity, Serf):
-                entity.x += random.choice([-1, 0, 1])
-                entity.y += random.choice([-1, 0, 1])
-
-            if isinstance(entity, Forest):
-                entity.resources -= 1
-                if entity.resources < 0:
-                    entity.resources = 0
-
+            entity.tick()
         self.turn += 1
 
     def setup(self):
         arcade.set_background_color(arcade.color.BLACK)
-        # self.terrain.prepare_sprite()
 
     def on_draw(self):
-        arcade.start_render()
+        self.clear()
         self.camera.use()
         self.terrain.sprite.draw(pixelated=True)
-
-        # for entity in self.terrain.entities:
-        #     assert entity.sprite is not None
-        #     entity.sprite.draw(pixelated=True)
         self.sprites_entities.draw(pixelated=True)
-
         if self.selected_tile:
             x, y = self.selected_tile
             self.sprite_selected.center_x = x * SPRITE_SIZE + SPRITE_SIZE // 2
             self.sprite_selected.center_y = y * SPRITE_SIZE + SPRITE_SIZE // 2
-            self.sprite_selected.draw(pixelated=True)
-
-        self.ui_manager.draw()
+            self.sprites_selected.draw(pixelated=True)
+        self.ui.draw()
 
     def on_update(self, delta_time):
-        v = Vec2(0, 0)
+        x, y = 0, 0
         if self.keys["w"]:
-            v.y = 1
+            y = 1
         if self.keys["s"]:
-            v.y = -1
+            y = -1
         if self.keys["a"]:
-            v.x = -1
+            x = -1
         if self.keys["d"]:
-            v.x = 1
-        v = v.normalize()
-        v = Vec2(v.x * MOVEMENT_SPEED, v.y * MOVEMENT_SPEED)
-        self.camera.move(self.camera.position + v)
+            x = 1
+        v = Vec2(x, y).normalize() * MOVEMENT_SPEED
+        self.camera.position = self.camera.position + v
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.W:
@@ -298,8 +298,8 @@ class MyGame(arcade.Window):
             self.keys["d"] = False
 
     def on_mouse_press(self, x, y, button, modifiers):
-        tx = int((x + self.camera.position.x) // SPRITE_SIZE)
-        ty = int((y + self.camera.position.y) // SPRITE_SIZE)
+        tx = int(((x // 10) + self.camera.bottom_left.x) // SPRITE_SIZE)
+        ty = int(((y // 10) + self.camera.bottom_left.y) // SPRITE_SIZE)
         if 0 <= tx < len(self.terrain.tiles[0]) and 0 <= ty < len(self.terrain.tiles):
             self.selected_tile = (tx, ty)
             if e := self.terrain.get_entity_at(tx, ty):

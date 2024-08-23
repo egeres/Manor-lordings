@@ -1,40 +1,75 @@
 import arcade
-from pathlib import Path
-
-# Define the path to the image
-image_path = Path(r"C:\Github\Manor-lordings\art\grass_dark_0.png")
-
-# Constants for the screen
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-SCREEN_TITLE = "Display an Image"
-SCALE = 10  # Scale factor to enlarge the 16x16 image
+import arcade.gl
+from pyglet.math import Vec2
 
 
-# Define a class for the game window
 class MyGame(arcade.Window):
     def __init__(self):
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-
-        # Load the image and set the scale
-        self.texture = arcade.load_texture(image_path, can_cache=False)
-        # self.scale = 10
-
+        super().__init__(800, 800)
+        self.a = arcade.SpriteList()
+        s = arcade.Sprite("grass_dark_0.png")
+        s.center_x = 0
+        s.center_y = 0
+        self.a.append(s)
+        # s = arcade.Sprite("grass_light_0.png")
+        # s.center_x = 16
+        # s.center_y = 1
+        # self.a.append(s)
+        self.camera = arcade.Camera2D(zoom=50)
+        self.camera.bottom_left = Vec2(0, 0)
     def on_draw(self):
-        # Clear the screen and start drawing
-        arcade.start_render()
-
-        # Draw the image in the center of the screen
-        arcade.draw_texture_rectangle(
-            SCREEN_WIDTH // 2,
-            SCREEN_HEIGHT // 2,
-            self.texture.width * SCALE,
-            self.texture.height * SCALE,
-            self.texture,
-        )
-
-
-# Start the game
+        self.clear()
+        self.camera.use()
+        # self.s.draw()
+        self.a.draw(pixelated=True)
 if __name__ == "__main__":
     window = MyGame()
     arcade.run()
+
+
+# import arcade
+# class MyGame(arcade.Window):
+#     def __init__(self):
+#         super().__init__(800, 800)
+#         self.a = arcade.SpriteList()
+#         self.a.append(
+#             arcade.Sprite(
+#                 "grass_dark_0.png",
+#                 scale=40,
+#                 center_x=self.width // 2,
+#                 center_y=self.height // 2,
+#             )
+#         )
+#         self.camera = arcade.Camera2D()
+#     def on_draw(self):
+#         self.clear()
+#         self.camera.use()
+#         self.a.draw(pixelated=True)
+# if __name__ == "__main__":
+#     window = MyGame()
+#     arcade.run()
+
+
+# class MyGame(arcade.Window):
+#     def __init__(self):
+#         super().__init__(800, 800)
+#         self.a = arcade.SpriteList()
+#         self.a.append(
+#             arcade.Sprite(
+#                 "grass_dark_0.png",
+#                 scale=40,
+#                 center_x=self.width // 2,
+#                 center_y=self.height // 2,
+#             )
+#         )
+#         self.camera = arcade.Camera2D()
+
+#     def on_draw(self):
+#         self.clear()
+#         self.camera.use()
+#         self.a.draw(pixelated=True)
+
+
+# if __name__ == "__main__":
+#     window = MyGame()
+#     arcade.run()
